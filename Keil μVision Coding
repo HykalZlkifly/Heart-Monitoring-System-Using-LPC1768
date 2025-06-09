@@ -1,0 +1,144 @@
+	AREA 	RESET, CODE, READONLY
+	ENTRY
+	
+	IMPORT __main
+	EXPORT __main
+
+;-------------------------------------------------
+;Register Mappings
+;-------------------------------------------------
+
+FIO0DIR		EQU	0x2009C000
+FIO0MASK	EQU	0x2009C010
+FIO0SET		EQU	0x2009C018
+FIO0CLR		EQU	0x2009C01C
+
+PCONP 		EQU	0x400FC0C4
+AD0CR		EQU	0x40034000
+PCLKSEL0	EQU	0x400FC1A8
+PINSEL3		EQU	0x4002C00C
+AD0GDR		EQU	0x40034004
+
+;-------------------------------------------------
+;Main Coding 
+;-------------------------------------------------
+
+__main
+	BL	Init_ADC
+	BL	Init_Dout
+
+;-------------------------------------------------
+;ADC Initilization
+;-------------------------------------------------
+
+Init_ADC
+
+;Step 1:Set PCADC bit(bit-12) in PCONP to  enable power for ADC Module
+
+	LDR 	R0,=PCONP
+	LDR 	R1,[R0]			;Read data of the Address
+	ORR 	R2,R1,#4096		;Maintain 12th bit as set '1'
+	STR 	R2,[R0]			;Write new data to the address
+
+;Step 2:Set PDN bit(bit-21) in AD0CR for ADC Module to become operational
+
+	LDR 	R0,=AD0CR
+	LDR 	R1,[R0]
+	ORR 	R2,R1,#0x200000		;Maintain 21st bit as set='1'
+	STR 	R2,[R0]
+
+;Step 3:Configure PCLK_ADC bits (bit[25:24]) in PCLKSEL0 for peripheral clock
+
+	LDR 	R0, =PCLKSEL0
+	LDR 	R1, [R0]
+	ORR 	R2,R1,#0x3000000	; bit[25:24] is set as 1
+	STR 	R2,[R0]
+
+;Step 4:Set PINSEL3 to function as Analogin for Pulse Sensor Module
+;Here we use DIP 19--> PINSEL3(11) -->P1.30(bits[29:28]) is set --> AD0.4 is activated
+
+	LDR 	R0,=PINSEL3
+	LDR 	R1,[R0]
+	ORR 	R2,R1,#0x30000000	;P1.30(bits[29:28] is set to activat AD0.4 function
+	STR 	R2,[R0]
+	
+	
+;Step 5:Configure the SEL bits in AD0CR Register to select the respective Analogin
+; Since DIP 19 --> P1.30/AD0.4 --> in Sel bits [7:0] the 4th bit become set(AD0.4)
+
+	LDR 	R0,=AD0CR
+	LDR 	R1,[R0]
+	ORR	R2,R1,#0x10
+	STR	R2,[R0]
+	BX  	LR
+
+;-------------------------------------------------
+;GPIO Initilization --> LEDs & Buzzer(P0)
+;Green Led --> P5(P0.9) Red LED --> P6(P0.8) Buzzer --> P7(P0.7)
+;-------------------------------------------------	
+
+Init_GPIO
+;Step 1:Set direction in FIO0DIR to Output ='1'
+
+	LDR 	R0,=FIO0DIR
+	LDR 	R1,=0x380		;in FIO0DIR bits [9:7] is set --> 0x00000380 
+	STR 	R1,[R0]
+
+;Step 2: Enable FIO0MASK to use only these 3 pin by writing '0'
+
+	LDR 	R0,=FIO0DIR
+	LDR 	R1,=0xFFFFFC7F		;Masking bits [9:7] with 0 and other become 1
+	STR	R1,[R0]
+	BX  	LR
+
+;Step 3: Enabling FIO0SET & FIO0CLR based on condition
+
+Green_ON
+
+	LDR 	R0,=FIO0SET
+	MOV 	R1,#9
+	STR 	R1,[R0]
+	BX	LR
+
+Green_OFF
+
+	LDR 	R0,=FIO0CLR
+	MOV 	R1,#9
+	STR 	R1,[R0]
+	BX	LR
+
+Red_ON
+
+	LDR 	R0,=FIO0SET
+	MOV 	R1,#8
+	STR 	R1,[R0]
+	BX	LR
+
+Red_OFF
+
+	LDR 	R0,=FIO0CLR
+	MOV 	R1,#8
+	STR 	R1,[R0]
+	BX	LR
+
+Buzzer_ON
+
+	LDR 	R0,=FIO0SET
+	MOV 	R1,#7
+	STR 	R1,[R0]
+	BX	LR
+
+Buzzer_OFF
+
+	LDR 	R0,=FIO0SET
+	MOV 	R1,#7
+	STR 	R1,[R0]
+	BX	LR
+
+Buzzer_Beep
+
+	BL	Buzzer_ON
+	BL	ShortDelay
+	BL	Buzzer_OFF
+	BX	LR
+
