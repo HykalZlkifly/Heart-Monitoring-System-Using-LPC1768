@@ -27,6 +27,70 @@ __main
 	BL	Init_ADC
 	BL	Init_Dout
 
+	MOV	R10,#0			;Previous pulse timestamp
+	MOV	R11,#0			;BPM
+	LDR	R12,=TimerCounter
+	MOV	R0,#0
+	STR	R0,[R12]		;Reset Timer
+MainLoop
+	BL	Start_ADC_Conversion
+
+Wait_Data
+	LDR	R0,=AD0GDR
+	LDR	R1,[R0]
+	TST	R0,#0X80000000		;Check if the data has finish stored by checking AD0GDR DONE bit(31st bit)
+	BEQ	Wait_Data		;Loop back if 31st bit is not set '1'
+
+;Read Result of Analogin Value in AD0GDR RESULT bits(bits[15:4])
+	LDR 	R0,=AD0GDR
+	LDR 	R1,[R0]
+	LSR	R1,R1,#4		;Push the bit to LSB for easier Data Isolation
+	MOV	R2,#0XFFF
+	AND	R1,R1,R2		;Data Isolation
+
+;Comparing the result heartbeat with threeshold
+	LDR	R0,=600			;Pulse Detection Threshold
+	CMP	R1,R0			;Compare if the pulse is detected
+	BGT	PulseDetected		;Loop PulseDetected function if data greater than 600 if not run next line
+
+;NoPulseCondition
+NoPulse	
+	BL 	Red_ON
+	BL	Green_OFF
+	BL 	Buzzer_OFF
+	B	UpdateTimer
+
+PulseDetected
+        BL      ReadTimer
+        MOV     R2, R0                   ; current time
+        SUB     R3, R2, R10              ; time delta
+        MOV     R10, R2                  ; update last time
+
+        ; Simulated BPM = 60000 / delta_ms (placeholder value)
+        MOV     R11, #600
+
+        ; if BPM < 60
+        CMP     R11, #49
+        BLS     Abnormal
+	; if BPM > 120
+        CMP     R11, #120
+        BGT     Abnormal
+
+Normal
+        BL      Green_On
+        BL      Red_Off
+        BL      Buzzer_Beep
+        B       UpdateTimer
+
+Abnormal
+        BL      Red_On
+        BL      Green_Off
+        BL      Buzzer_On
+
+UpdateTimer
+	BL	Delay
+	B	Mainloop
+
 ;-------------------------------------------------
 ;ADC Initilization
 ;-------------------------------------------------
@@ -72,10 +136,19 @@ Init_ADC
 	STR	R2,[R0]
 	BX  	LR
 
-;-------------------------------------------------
+;Step 6: Start Analog to Digital Conversion by setting START bits(bit[26:24]) in AD0CR as 001
+
+Start_ADC_Conversion
+	LDR	R0,=AD0CR
+	LDR 	R1,[R0]
+	ORR	R2,R1,#0x1000000
+	STR	R2,[R0]
+	BX	LR
+
+;------------------------------------------------------------------------------------
 ;GPIO Initilization --> LEDs & Buzzer(P0)
 ;Green Led --> P5(P0.9) Red LED --> P6(P0.8) Buzzer --> P7(P0.7)
-;-------------------------------------------------	
+;------------------------------------------------------------------------------------	
 
 Init_GPIO
 ;Step 1:Set direction in FIO0DIR to Output ='1'
@@ -141,4 +214,34 @@ Buzzer_Beep
 	BL	ShortDelay
 	BL	Buzzer_OFF
 	BX	LR
+;------------------------------------------------------------------------------------
+;Simulated Timer
+;------------------------------------------------------------------------------------
+ReadTimer
+	LDR	R0,=TimerCounter
+	LDR	R1,[R0]
+	ADD	R2,R1,#100
+	STR	R2,[R0]
+	BX	LR
+;------------------------------------------------------------------------------------
+;Relay Function
+;------------------------------------------------------------------------------------	
+Delay
+	MOV	R3,#0x3FFF
+DelayLoop
+	SUBS	R3,R3,#1
+	BNE	DelayLoop
+	BX	LR
+ShortDelay
+	SUBS	R3,R3,#1
+	BNE	ShortDelay
+	BX	LR
+;------------------------------------------------------------------------------------
+;Data Section
+;------------------------------------------------------------------------------------	
+	AREA 	CONSTS, DATA, READWRITE
 
+TimerCounter
+	DCD	0
+
+	END
