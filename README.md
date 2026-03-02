@@ -3,7 +3,7 @@
 
 This project implements a real-time heart rate monitoring system using the LPC1768 microcontroller. The system measures heartbeats, calculates BPM (beats per minute), and provides visual and audible alerts for normal and abnormal heart rates.
 
-# Objective
+## Objective
 
 To develop a reliable heart monitoring system that continuously measures heart rate and alerts the user of abnormal conditions using LEDs and a buzzer.
 
