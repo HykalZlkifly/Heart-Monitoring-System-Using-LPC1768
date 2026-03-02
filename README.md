@@ -1,5 +1,5 @@
-Heart-Monitoring-System-Using-LPC1768
-Overview
+#Heart-Monitoring-System-Using-LPC1768
+#Overview
 
 This project implements a real-time heart rate monitoring system using the LPC1768 microcontroller. The system measures heartbeats, calculates BPM (beats per minute), and provides visual and audible alerts for normal and abnormal heart rates.
 
